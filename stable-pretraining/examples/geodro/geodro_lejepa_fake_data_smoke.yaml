@@ -1,0 +1,198 @@
+# GeoDRO-LeJEPA v1.1 smoke configuration on synthetic image data.
+#
+# Purpose:
+#   Verify that the opt-in GeoDRO-LeJEPA training path instantiates, computes
+#   training-only weights, logs diagnostics, and keeps inference/probe outputs
+#   compatible with the baseline framework.
+#
+# Usage:
+#   python -m stable_pretraining.run --config-path ../examples/geodro \
+#     --config-name geodro_lejepa_fake_data_smoke
+
+seed: 42
+ckpt_path: null
+
+metadata:
+  spec_version: geodro_lejepa_v1_1_reliability_gated
+  family: geodro_jepa
+  aggregation: coherent_hardness
+  geometry_support: batch
+  memory_usage_mode: none
+  ssl_instantiation: lejepa
+  method: geodro_v1_1
+  dataset: fake_data
+  model: conv32
+  run_role: smoke
+  seed: ${seed}
+  graph_feature_space: pre_projector_global_center
+  graph_space: ${metadata.graph_feature_space}
+  graph_feature_normalized: true
+  graph_distance_metric: cosine
+  memory_stores_normalized_features: true
+  graph_mode: mutual_knn
+  utility_mode: view_graph_coherent
+  adversary_scope: microbatch
+  local_batch_size: ${data.train.batch_size}
+  global_batch_size: ${data.train.batch_size}
+  accumulate_grad_batches: ${trainer.accumulate_grad_batches}
+
+trainer:
+  _target_: lightning.Trainer
+  max_steps: 2
+  max_epochs: 1
+  accelerator: cpu
+  devices: 1
+  precision: 32-true
+  num_sanity_val_steps: 0
+  limit_train_batches: 2
+  limit_val_batches: 0
+  enable_checkpointing: false
+  logger: false
+  accumulate_grad_batches: 1
+
+module:
+  _target_: stable_pretraining.Module
+  forward:
+    _target_: stable_pretraining.geodro_lejepa.forward.geodro_lejepa_forward
+    _partial_: true
+
+  backbone:
+    _target_: torch.nn.Sequential
+    _args_:
+      - _target_: torch.nn.Conv2d
+        in_channels: 3
+        out_channels: 16
+        kernel_size: 3
+        stride: 2
+        padding: 1
+      - _target_: torch.nn.ReLU
+      - _target_: torch.nn.AdaptiveAvgPool2d
+        output_size: [1, 1]
+      - _target_: torch.nn.Flatten
+      - _target_: torch.nn.Linear
+        in_features: 16
+        out_features: 32
+
+  projector:
+    _target_: torch.nn.Sequential
+    _args_:
+      - _target_: torch.nn.Linear
+        in_features: 32
+        out_features: 64
+      - _target_: torch.nn.ReLU
+      - _target_: torch.nn.Linear
+        in_features: 64
+        out_features: 32
+
+  geodro_lejepa_loss:
+    _target_: stable_pretraining.geodro_lejepa.CoherentHardnessGeoDROLeJEPALoss
+    family: ${metadata.family}
+    aggregation: ${metadata.aggregation}
+    geometry_support: ${metadata.geometry_support}
+    memory_usage_mode: ${metadata.memory_usage_mode}
+    ssl_instantiation: ${metadata.ssl_instantiation}
+    lambda_: 0.05
+    num_slices: 16
+    t_max: 3.0
+    n_points: 9
+    graph_feature_space: ${metadata.graph_feature_space}
+    graph_feature_normalized: ${metadata.graph_feature_normalized}
+    graph_distance_metric: ${metadata.graph_distance_metric}
+    memory_stores_normalized_features: ${metadata.memory_stores_normalized_features}
+    graph_mode: mutual_knn
+    utility_mode: view_graph_coherent
+    adversary_scope: microbatch
+    k: 4
+    inner_steps: 3
+    beta: 0.2
+    tau_flow: 0.05
+    alpha_max: 0.5
+    warmup_fraction: 0.0
+    ramp_fraction: 0.0
+    ess_min_ratio: 0.25
+
+  optim:
+    optimizer:
+      _target_: torch.optim.AdamW
+      _partial_: true
+      lr: 1e-3
+      weight_decay: 0.01
+    scheduler: LinearWarmupCosineAnnealingLR
+    interval: step
+
+data:
+  _target_: stable_pretraining.data.DataModule
+
+  train:
+    batch_size: 64
+    num_workers: 0
+    drop_last: true
+    shuffle: true
+    dataset:
+      _target_: stable_pretraining.data.datasets.FromTorchDataset
+      dataset:
+        _target_: torchvision.datasets.FakeData
+        size: 128
+        image_size: [3, 32, 32]
+        num_classes: 10
+      names: [image, label]
+      transform:
+        _target_: stable_pretraining.data.transforms.MultiViewTransform
+        transforms:
+          global_0:
+            _target_: stable_pretraining.data.transforms.Compose
+            _args_:
+              - _target_: stable_pretraining.data.transforms.RGB
+              - _target_: stable_pretraining.data.transforms.RandomResizedCrop
+                size: [32, 32]
+                scale: [0.5, 1.0]
+              - _target_: stable_pretraining.data.transforms.ToImage
+                mean: [0.5, 0.5, 0.5]
+                std: [0.5, 0.5, 0.5]
+          global_1:
+            _target_: stable_pretraining.data.transforms.Compose
+            _args_:
+              - _target_: stable_pretraining.data.transforms.RGB
+              - _target_: stable_pretraining.data.transforms.RandomResizedCrop
+                size: [32, 32]
+                scale: [0.5, 1.0]
+              - _target_: stable_pretraining.data.transforms.ToImage
+                mean: [0.5, 0.5, 0.5]
+                std: [0.5, 0.5, 0.5]
+          local_0:
+            _target_: stable_pretraining.data.transforms.Compose
+            _args_:
+              - _target_: stable_pretraining.data.transforms.RGB
+              - _target_: stable_pretraining.data.transforms.RandomResizedCrop
+                size: [24, 24]
+                scale: [0.25, 0.75]
+              - _target_: stable_pretraining.data.transforms.ToImage
+                mean: [0.5, 0.5, 0.5]
+                std: [0.5, 0.5, 0.5]
+
+  val:
+    batch_size: 64
+    num_workers: 0
+    dataset:
+      _target_: stable_pretraining.data.datasets.FromTorchDataset
+      dataset:
+        _target_: torchvision.datasets.FakeData
+        size: 64
+        image_size: [3, 32, 32]
+        num_classes: 10
+      names: [image, label]
+      transform:
+        _target_: stable_pretraining.data.transforms.Compose
+        _args_:
+          - _target_: stable_pretraining.data.transforms.RGB
+          - _target_: stable_pretraining.data.transforms.Resize
+            size: [32, 32]
+          - _target_: stable_pretraining.data.transforms.ToImage
+            mean: [0.5, 0.5, 0.5]
+            std: [0.5, 0.5, 0.5]
+
+hydra:
+  run:
+    dir: outputs/geodro-lejepa-fake-data-smoke/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  job:
+    chdir: false

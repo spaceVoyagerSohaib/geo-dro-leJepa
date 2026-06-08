@@ -1,0 +1,35 @@
+# @package _global_
+
+defaults:
+  - geodro_lejepa_imagenet100ctrl_v1_optstep_accum
+  - _self_
+
+metadata:
+  run_role: activation_optstep_accum
+
+trainer:
+  logger:
+    name: ${metadata.method}-${metadata.dataset}-${metadata.model}-${metadata.run_role}
+    group: ${metadata.method}/${metadata.dataset}/${metadata.model}/activation
+    tags:
+      - geodro-v1.1
+      - imagenet100ctrl
+      - vits8
+      - optimizer-step
+      - accumulation
+      - activation-pilot
+      - relaxed-gate
+
+module:
+  geodro_lejepa_loss:
+    k: 16
+    inner_steps: 20
+    beta: 0.2
+    tau_flow: 0.025
+    alpha_max: 0.01
+    warmup_fraction: 0.0
+    ramp_fraction: 0.0
+    ess_min_ratio: 0.005
+    max_p_factor_fail: 256.0
+    clamp_activation_fail: 0.50
+    p_cap: 0.0025

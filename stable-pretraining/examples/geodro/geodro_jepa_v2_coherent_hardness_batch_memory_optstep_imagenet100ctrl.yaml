@@ -1,0 +1,56 @@
+# @package _global_
+# GeoDRO-JEPA V2.2 coherent-hardness + batch_memory optimizer-step config.
+#
+# This is the supported memory full-run/pilot path: accumulated microbatches are
+# solved as one optimizer-step-global adversary, then the full current support is
+# enqueued once after replay.
+
+defaults:
+  - geodro_jepa_v2_coherent_hardness_batch_memory_imagenet100ctrl_smoke
+  - _self_
+
+metadata:
+  method: geodro_jepa_v2_coherent_hardness_batch_memory_optstep
+  run_role: optstep_memory
+  adversary_scope: optimizer_step
+  memory_update_scope: optimizer_step_delayed
+  local_batch_size: ${data.train.batch_size}
+  global_graph_batch_size: 2048
+
+trainer:
+  num_nodes: 1
+  devices: 4
+  accumulate_grad_batches: 4
+  logger:
+    name: ${metadata.method}-${metadata.dataset}-${metadata.model}-${metadata.run_role}
+    group: ${metadata.method}/${metadata.dataset}/${metadata.model}/optstep-memory
+    tags:
+      - geodro-jepa-v2.2
+      - coherent-hardness
+      - batch-memory
+      - optimizer-step
+      - delayed-memory
+      - imagenet100ctrl
+      - vits8
+
+data:
+  train:
+    batch_size: 128
+  val:
+    batch_size: 128
+
+module:
+  geodro_lejepa_loss:
+    adversary_scope: ${metadata.adversary_scope}
+    memory_update_scope: ${metadata.memory_update_scope}
+    memory_queue_capacity: 16384
+    memory_top_m: 64
+    memory_k_sigma: 64
+    memory_min_fill_ratio: 0.125
+    memory_retrieval_chunk_size: 512
+    memory_k_guard: 64
+    memory_witness_threshold_mode: shuffled_null_quantile
+    memory_witness_null_quantile: 0.95
+    memory_extra_edges_per_node_max: 2
+    memory_added_edge_ratio_max: 0.25
+    witness_score_mode: specificity_weighted_hellinger

@@ -1,0 +1,21 @@
+# @package _global_
+# GeoDRO-JEPA V2.2 coherent-hardness + batch ImageNet-100ctrl smoke (cell config).
+#
+# Cell-only: declares the four cell axes. Shape, GeoDRO core knobs, and V2
+# memory knobs are launcher-driven (see scripts/slurm/geodro_jepa_v2_smoke.sbatch).
+#
+# This config is the V1.1 math path under its renamed class — useful for
+# regression smoke and as the base for memory cells.
+
+defaults:
+  - geodro_lejepa_imagenet100ctrl_v1
+  - _self_
+
+metadata:
+  spec_version: geodro_jepa_v2_2_graph_wasserstein
+  aggregation: coherent_hardness
+  geometry_support: batch
+  memory_usage_mode: none
+  utility_mode: view_graph_coherent
+  method: geodro_jepa_v2_coherent_hardness
+  run_role: phase13_smoke

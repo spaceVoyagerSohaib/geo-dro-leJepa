@@ -1,0 +1,14 @@
+# @package _global_
+
+defaults:
+  - geodro_lejepa_imagenet100ctrl_v1_optstep_accum_activation
+  - _self_
+
+metadata:
+  method: geodro_fully_connected
+  run_role: activation_fully_connected
+  graph_mode: fully_connected
+
+trainer:
+  logger:
+    tags: [geodro-v1.1, fully-connected, ablation, imagenet100ctrl, vits8, optimizer-step, accumulation, activation-pilot]

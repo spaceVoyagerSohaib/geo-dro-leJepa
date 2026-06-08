@@ -1,0 +1,14 @@
+# @package _global_
+
+defaults:
+  - geodro_lejepa_imagenet100ctrl_v1_optstep_accum_activation
+  - _self_
+
+metadata:
+  method: geodro_max_union
+  run_role: activation_max_union
+  graph_mode: max_union_knn
+
+trainer:
+  logger:
+    tags: [geodro-v1.1, max-union, ablation, imagenet100ctrl, vits8, optimizer-step, accumulation, activation-pilot]

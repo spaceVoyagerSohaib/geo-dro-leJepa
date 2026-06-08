@@ -1,0 +1,29 @@
+# GeoDRO-JEPA GraphTransport smoke configuration on synthetic image data.
+#
+# Purpose:
+#   Verify that the GraphTransport aggregation path instantiates, computes
+#   current-only batch graph weights, logs diagnostics, and keeps inference
+#   outputs compatible with the baseline framework.
+#
+# Usage:
+#   python -m stable_pretraining.run --config-path ../examples/geodro \
+#     --config-name geodro_jepa_graph_transport_fake_data_smoke
+
+defaults:
+  - geodro_lejepa_fake_data_smoke
+  - _self_
+
+metadata:
+  spec_version: geodro_jepa_v2_2_graph_wasserstein
+  aggregation: graph_transport
+  geometry_support: batch
+  memory_usage_mode: none
+  ssl_instantiation: lejepa
+  method: geodro_jepa_graph_transport
+  run_role: graph_transport_smoke
+  utility_mode: view_aware
+
+module:
+  geodro_lejepa_loss:
+    _target_: stable_pretraining.geodro_lejepa.GraphTransportGeoDROJEPALoss
+    utility_mode: ${metadata.utility_mode}

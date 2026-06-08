@@ -1,0 +1,24 @@
+defaults:
+  - geodro_lejepa_cifar10ctrl_base
+  - _self_
+
+metadata:
+  method: lejepa_erm
+  run_role: erm_sanity
+
+trainer:
+  logger:
+    name: ${metadata.method}-${metadata.dataset}-${metadata.model}-${metadata.run_role}
+    group: ${metadata.method}/${metadata.dataset}/${metadata.model}/sanity
+    tags: [baseline, cifar10ctrl, sanity]
+
+module:
+  forward:
+    _target_: stable_pretraining.forward.lejepa_forward
+    _partial_: true
+  lejepa_loss:
+    _target_: stable_pretraining.losses.LeJEPALoss
+    lambda_: 0.05
+    num_slices: 64
+    t_max: 3.0
+    n_points: 9

@@ -1,0 +1,14 @@
+# @package _global_
+
+defaults:
+  - geodro_lejepa_imagenet100ctrl_v1_optstep_accum_activation
+  - _self_
+
+metadata:
+  method: geodro_random_graph
+  run_role: activation_random_graph
+  graph_mode: random_regular
+
+trainer:
+  logger:
+    tags: [geodro-v1.1, random-graph, ablation, imagenet100ctrl, vits8, optimizer-step, accumulation, activation-pilot]

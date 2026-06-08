@@ -1,0 +1,27 @@
+# @package _global_
+
+defaults:
+  - geodro_lejepa_imagenet100ctrl_erm
+  - _self_
+
+metadata:
+  run_role: main_erm_optstep_accum
+  adversary_scope: optimizer_step
+  local_batch_size: ${data.train.batch_size}
+  global_graph_batch_size: 2048
+  accumulate_grad_batches: ${trainer.accumulate_grad_batches}
+
+trainer:
+  num_nodes: 1
+  devices: 4
+  accumulate_grad_batches: 4
+  logger:
+    name: ${metadata.method}-${metadata.dataset}-${metadata.model}-${metadata.run_role}
+    group: ${metadata.method}/${metadata.dataset}/${metadata.model}/main
+    tags: [baseline, imagenet100ctrl, vits8, main, accumulation, optstep-comparison]
+
+data:
+  train:
+    batch_size: 128
+  val:
+    batch_size: 128

@@ -1,0 +1,37 @@
+# @package _global_
+# GeoDRO-JEPA V2.2 graph-transport + batch_memory ImageNet-100ctrl smoke (cell config).
+#
+# Cell config sets the cell axes (incl. GraphTransport _target_) and the
+# memory floor (capacity, top_m, k_sigma, k_guard, retrieval chunk, threshold
+# mode, null quantile). utility_smoothing_graph is set but ignored by
+# GraphTransport's view-aware utility. Memory edge budgets, ablation modes,
+# and seeds are launcher-driven (see scripts/slurm/geodro_jepa_v2_smoke.sbatch).
+
+defaults:
+  - geodro_lejepa_imagenet100ctrl_v1
+  - _self_
+
+metadata:
+  spec_version: geodro_jepa_v2_2_graph_wasserstein
+  aggregation: graph_transport
+  geometry_support: batch_memory
+  memory_usage_mode: memory_witnessed
+  utility_mode: view_aware
+  utility_smoothing_graph: final
+  method: geodro_jepa_v2_graph_transport_batch_memory
+  run_role: phase13_smoke
+
+module:
+  geodro_lejepa_loss:
+    _target_: stable_pretraining.geodro_lejepa.GraphTransportGeoDROJEPALoss
+    geometry_support: ${metadata.geometry_support}
+    memory_usage_mode: ${metadata.memory_usage_mode}
+    utility_mode: ${metadata.utility_mode}
+    utility_smoothing_graph: ${metadata.utility_smoothing_graph}
+    memory_queue_capacity: 512
+    memory_top_m: 64
+    memory_k_sigma: 64
+    memory_k_guard: 64
+    memory_retrieval_chunk_size: 256
+    memory_witness_threshold_mode: shuffled_null_quantile
+    memory_witness_null_quantile: 0.95

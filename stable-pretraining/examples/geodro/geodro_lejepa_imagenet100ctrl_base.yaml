@@ -1,0 +1,331 @@
+# @package _global_
+# Shared ImageNet-100 controlled ViT-S/8 surface for GeoDRO-LeJEPA v1.
+#
+# Launch from the examples config root, for example:
+#   python -m stable_pretraining.run --config-path examples \
+#     --config-name geodro/geodro_lejepa_imagenet100ctrl_v1
+
+defaults:
+  - /baselines/lejepa_vits8_imagenet100@_global_
+  - _self_
+
+seed: 42
+
+metadata:
+  spec_version: geodro_lejepa_v1_1_reliability_gated
+  family: geodro_jepa
+  aggregation: coherent_hardness
+  geometry_support: batch
+  memory_usage_mode: none
+  ssl_instantiation: lejepa
+  method: geodro_v1_1
+  dataset: imagenet100ctrl
+  model: vits8
+  run_role: main
+  seed: ${seed}
+  graph_feature_space: pre_projector_global_center
+  graph_space: ${metadata.graph_feature_space}
+  graph_feature_normalized: true
+  graph_distance_metric: cosine
+  memory_stores_normalized_features: true
+  graph_mode: mutual_knn
+  utility_mode: view_graph_coherent
+  adversary_scope: microbatch
+  local_batch_size: ${data.train.batch_size}
+  global_graph_batch_size: 2048
+  accumulate_grad_batches: ${trainer.accumulate_grad_batches}
+  controlled_shift:
+    coherent_labels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29]
+    coherent_fraction: 0.30
+    isolated_view: global_1
+    isolated_period: 20
+    isolated_fraction: 0.05
+
+trainer:
+  max_epochs: 400
+  num_nodes: 2
+  devices: 4
+  strategy: ddp
+  precision: bf16-mixed
+  accumulate_grad_batches: 1
+  logger:
+    project: ssl-geo-dro
+    name: ${metadata.method}-${metadata.dataset}-${metadata.model}-${metadata.run_role}
+    group: ${metadata.method}/${metadata.dataset}/${metadata.model}/main
+    job_type: pretrain
+    tags: [geodro-v1.1, imagenet100ctrl, vits8, main]
+    config: ${metadata}
+
+data:
+  train:
+    batch_size: 256
+    dataset:
+      transform:
+        _target_: stable_pretraining.data.transforms.MultiViewTransform
+        transforms:
+          global_0:
+            _target_: stable_pretraining.data.transforms.Compose
+            _args_:
+              - _target_: stable_pretraining.data.transforms.RGB
+              - _target_: stable_pretraining.geodro_lejepa.ImageNet100ControlledCorruption
+                view_name: global_0
+                coherent_labels: ${metadata.controlled_shift.coherent_labels}
+                isolated_view: ${metadata.controlled_shift.isolated_view}
+                isolated_period: ${metadata.controlled_shift.isolated_period}
+              - _target_: stable_pretraining.data.transforms.RandomResizedCrop
+                size: [224, 224]
+                scale: [0.3, 1.0]
+              - _target_: stable_pretraining.data.transforms.ColorJitter
+                brightness: 0.4
+                contrast: 0.4
+                saturation: 0.2
+                hue: 0.1
+                p: 0.8
+              - _target_: stable_pretraining.data.transforms.RandomGrayscale
+                p: 0.2
+              - _target_: stable_pretraining.data.transforms.GaussianBlur
+                kernel_size: 23
+                sigma: [0.1, 2.0]
+                p: 0.5
+              - _target_: stable_pretraining.data.transforms.RandomSolarize
+                threshold: 128
+                p: 0.2
+              - _target_: stable_pretraining.data.transforms.RandomHorizontalFlip
+                p: 0.5
+              - _target_: stable_pretraining.data.transforms.ToImage
+                mean: [0.485, 0.456, 0.406]
+                std: [0.229, 0.224, 0.225]
+          global_1:
+            _target_: stable_pretraining.data.transforms.Compose
+            _args_:
+              - _target_: stable_pretraining.data.transforms.RGB
+              - _target_: stable_pretraining.geodro_lejepa.ImageNet100ControlledCorruption
+                view_name: global_1
+                coherent_labels: ${metadata.controlled_shift.coherent_labels}
+                isolated_view: ${metadata.controlled_shift.isolated_view}
+                isolated_period: ${metadata.controlled_shift.isolated_period}
+              - _target_: stable_pretraining.data.transforms.RandomResizedCrop
+                size: [224, 224]
+                scale: [0.3, 1.0]
+              - _target_: stable_pretraining.data.transforms.ColorJitter
+                brightness: 0.4
+                contrast: 0.4
+                saturation: 0.2
+                hue: 0.1
+                p: 0.8
+              - _target_: stable_pretraining.data.transforms.RandomGrayscale
+                p: 0.2
+              - _target_: stable_pretraining.data.transforms.GaussianBlur
+                kernel_size: 23
+                sigma: [0.1, 2.0]
+                p: 0.5
+              - _target_: stable_pretraining.data.transforms.RandomSolarize
+                threshold: 128
+                p: 0.2
+              - _target_: stable_pretraining.data.transforms.RandomHorizontalFlip
+                p: 0.5
+              - _target_: stable_pretraining.data.transforms.ToImage
+                mean: [0.485, 0.456, 0.406]
+                std: [0.229, 0.224, 0.225]
+          local_0:
+            _target_: stable_pretraining.data.transforms.Compose
+            _args_: &local_transform
+              - _target_: stable_pretraining.data.transforms.RGB
+              - _target_: stable_pretraining.geodro_lejepa.ImageNet100ControlledCorruption
+                view_name: local_0
+                coherent_labels: ${metadata.controlled_shift.coherent_labels}
+                isolated_view: ${metadata.controlled_shift.isolated_view}
+                isolated_period: ${metadata.controlled_shift.isolated_period}
+              - _target_: stable_pretraining.data.transforms.RandomResizedCrop
+                size: [96, 96]
+                scale: [0.05, 0.3]
+              - _target_: stable_pretraining.data.transforms.ColorJitter
+                brightness: 0.4
+                contrast: 0.4
+                saturation: 0.2
+                hue: 0.1
+                p: 0.8
+              - _target_: stable_pretraining.data.transforms.RandomGrayscale
+                p: 0.2
+              - _target_: stable_pretraining.data.transforms.GaussianBlur
+                kernel_size: 9
+                sigma: [0.1, 2.0]
+                p: 0.5
+              - _target_: stable_pretraining.data.transforms.RandomSolarize
+                threshold: 128
+                p: 0.2
+              - _target_: stable_pretraining.data.transforms.RandomHorizontalFlip
+                p: 0.5
+              - _target_: stable_pretraining.data.transforms.ToImage
+                mean: [0.485, 0.456, 0.406]
+                std: [0.229, 0.224, 0.225]
+          local_1:
+            _target_: stable_pretraining.data.transforms.Compose
+            _args_:
+              - _target_: stable_pretraining.data.transforms.RGB
+              - _target_: stable_pretraining.geodro_lejepa.ImageNet100ControlledCorruption
+                view_name: local_1
+                coherent_labels: ${metadata.controlled_shift.coherent_labels}
+                isolated_view: ${metadata.controlled_shift.isolated_view}
+                isolated_period: ${metadata.controlled_shift.isolated_period}
+              - _target_: stable_pretraining.data.transforms.RandomResizedCrop
+                size: [96, 96]
+                scale: [0.05, 0.3]
+              - _target_: stable_pretraining.data.transforms.ColorJitter
+                brightness: 0.4
+                contrast: 0.4
+                saturation: 0.2
+                hue: 0.1
+                p: 0.8
+              - _target_: stable_pretraining.data.transforms.RandomGrayscale
+                p: 0.2
+              - _target_: stable_pretraining.data.transforms.GaussianBlur
+                kernel_size: 9
+                sigma: [0.1, 2.0]
+                p: 0.5
+              - _target_: stable_pretraining.data.transforms.RandomSolarize
+                threshold: 128
+                p: 0.2
+              - _target_: stable_pretraining.data.transforms.RandomHorizontalFlip
+                p: 0.5
+              - _target_: stable_pretraining.data.transforms.ToImage
+                mean: [0.485, 0.456, 0.406]
+                std: [0.229, 0.224, 0.225]
+          local_2:
+            _target_: stable_pretraining.data.transforms.Compose
+            _args_:
+              - _target_: stable_pretraining.data.transforms.RGB
+              - _target_: stable_pretraining.geodro_lejepa.ImageNet100ControlledCorruption
+                view_name: local_2
+                coherent_labels: ${metadata.controlled_shift.coherent_labels}
+                isolated_view: ${metadata.controlled_shift.isolated_view}
+                isolated_period: ${metadata.controlled_shift.isolated_period}
+              - _target_: stable_pretraining.data.transforms.RandomResizedCrop
+                size: [96, 96]
+                scale: [0.05, 0.3]
+              - _target_: stable_pretraining.data.transforms.ColorJitter
+                brightness: 0.4
+                contrast: 0.4
+                saturation: 0.2
+                hue: 0.1
+                p: 0.8
+              - _target_: stable_pretraining.data.transforms.RandomGrayscale
+                p: 0.2
+              - _target_: stable_pretraining.data.transforms.GaussianBlur
+                kernel_size: 9
+                sigma: [0.1, 2.0]
+                p: 0.5
+              - _target_: stable_pretraining.data.transforms.RandomSolarize
+                threshold: 128
+                p: 0.2
+              - _target_: stable_pretraining.data.transforms.RandomHorizontalFlip
+                p: 0.5
+              - _target_: stable_pretraining.data.transforms.ToImage
+                mean: [0.485, 0.456, 0.406]
+                std: [0.229, 0.224, 0.225]
+          local_3:
+            _target_: stable_pretraining.data.transforms.Compose
+            _args_:
+              - _target_: stable_pretraining.data.transforms.RGB
+              - _target_: stable_pretraining.geodro_lejepa.ImageNet100ControlledCorruption
+                view_name: local_3
+                coherent_labels: ${metadata.controlled_shift.coherent_labels}
+                isolated_view: ${metadata.controlled_shift.isolated_view}
+                isolated_period: ${metadata.controlled_shift.isolated_period}
+              - _target_: stable_pretraining.data.transforms.RandomResizedCrop
+                size: [96, 96]
+                scale: [0.05, 0.3]
+              - _target_: stable_pretraining.data.transforms.ColorJitter
+                brightness: 0.4
+                contrast: 0.4
+                saturation: 0.2
+                hue: 0.1
+                p: 0.8
+              - _target_: stable_pretraining.data.transforms.RandomGrayscale
+                p: 0.2
+              - _target_: stable_pretraining.data.transforms.GaussianBlur
+                kernel_size: 9
+                sigma: [0.1, 2.0]
+                p: 0.5
+              - _target_: stable_pretraining.data.transforms.RandomSolarize
+                threshold: 128
+                p: 0.2
+              - _target_: stable_pretraining.data.transforms.RandomHorizontalFlip
+                p: 0.5
+              - _target_: stable_pretraining.data.transforms.ToImage
+                mean: [0.485, 0.456, 0.406]
+                std: [0.229, 0.224, 0.225]
+          local_4:
+            _target_: stable_pretraining.data.transforms.Compose
+            _args_:
+              - _target_: stable_pretraining.data.transforms.RGB
+              - _target_: stable_pretraining.geodro_lejepa.ImageNet100ControlledCorruption
+                view_name: local_4
+                coherent_labels: ${metadata.controlled_shift.coherent_labels}
+                isolated_view: ${metadata.controlled_shift.isolated_view}
+                isolated_period: ${metadata.controlled_shift.isolated_period}
+              - _target_: stable_pretraining.data.transforms.RandomResizedCrop
+                size: [96, 96]
+                scale: [0.05, 0.3]
+              - _target_: stable_pretraining.data.transforms.ColorJitter
+                brightness: 0.4
+                contrast: 0.4
+                saturation: 0.2
+                hue: 0.1
+                p: 0.8
+              - _target_: stable_pretraining.data.transforms.RandomGrayscale
+                p: 0.2
+              - _target_: stable_pretraining.data.transforms.GaussianBlur
+                kernel_size: 9
+                sigma: [0.1, 2.0]
+                p: 0.5
+              - _target_: stable_pretraining.data.transforms.RandomSolarize
+                threshold: 128
+                p: 0.2
+              - _target_: stable_pretraining.data.transforms.RandomHorizontalFlip
+                p: 0.5
+              - _target_: stable_pretraining.data.transforms.ToImage
+                mean: [0.485, 0.456, 0.406]
+                std: [0.229, 0.224, 0.225]
+          local_5:
+            _target_: stable_pretraining.data.transforms.Compose
+            _args_:
+              - _target_: stable_pretraining.data.transforms.RGB
+              - _target_: stable_pretraining.geodro_lejepa.ImageNet100ControlledCorruption
+                view_name: local_5
+                coherent_labels: ${metadata.controlled_shift.coherent_labels}
+                isolated_view: ${metadata.controlled_shift.isolated_view}
+                isolated_period: ${metadata.controlled_shift.isolated_period}
+              - _target_: stable_pretraining.data.transforms.RandomResizedCrop
+                size: [96, 96]
+                scale: [0.05, 0.3]
+              - _target_: stable_pretraining.data.transforms.ColorJitter
+                brightness: 0.4
+                contrast: 0.4
+                saturation: 0.2
+                hue: 0.1
+                p: 0.8
+              - _target_: stable_pretraining.data.transforms.RandomGrayscale
+                p: 0.2
+              - _target_: stable_pretraining.data.transforms.GaussianBlur
+                kernel_size: 9
+                sigma: [0.1, 2.0]
+                p: 0.5
+              - _target_: stable_pretraining.data.transforms.RandomSolarize
+                threshold: 128
+                p: 0.2
+              - _target_: stable_pretraining.data.transforms.RandomHorizontalFlip
+                p: 0.5
+              - _target_: stable_pretraining.data.transforms.ToImage
+                mean: [0.485, 0.456, 0.406]
+                std: [0.229, 0.224, 0.225]
+  val:
+    batch_size: 256
+
+hydra:
+  run:
+    dir: outputs/geodro-lejepa-imagenet100ctrl/${metadata.method}/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweep:
+    dir: multirun/geodro-lejepa-imagenet100ctrl/${metadata.method}/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  job:
+    chdir: false

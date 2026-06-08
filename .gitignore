@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+build/
+dist/
+.eggs/
+.installed.cfg
+MANIFEST
+
+# Test / coverage caches
+.pytest_cache/
+.mypy_cache/
+.dmypy.json
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+.tox/
+.nox/
+.hypothesis/
+
+# Env / secrets
+.env
+.env.local
+.env.*.local
+*.env.local
+.venv/
+venv/
+env/
+
+# Generated experiment artifacts
+outputs/
+multirun/
+logs/
+wandb/
+snapshots/
+lejepa/temp/
+*.ckpt
+*.pt
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+
+# setuptools-scm autogen
+stable-pretraining/stable_pretraining/_version.py

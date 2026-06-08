@@ -1,0 +1,44 @@
+# @package _global_
+
+defaults:
+  - geodro_lejepa_imagenet100ctrl_base
+  - _self_
+
+metadata:
+  method: geodro_v1_1_alpha0
+  run_role: main_alpha0
+
+trainer:
+  logger:
+    tags: [geodro-v1.1, alpha0, imagenet100ctrl, vits8, main]
+
+module:
+  forward:
+    _target_: stable_pretraining.geodro_lejepa.forward.geodro_lejepa_forward
+    _partial_: true
+  geodro_lejepa_loss:
+    _target_: stable_pretraining.geodro_lejepa.CoherentHardnessGeoDROLeJEPALoss
+    family: ${metadata.family}
+    aggregation: ${metadata.aggregation}
+    geometry_support: ${metadata.geometry_support}
+    memory_usage_mode: ${metadata.memory_usage_mode}
+    ssl_instantiation: ${metadata.ssl_instantiation}
+    lambda_: 0.05
+    num_slices: 1024
+    t_max: 5.0
+    n_points: 17
+    graph_feature_space: ${metadata.graph_feature_space}
+    graph_feature_normalized: ${metadata.graph_feature_normalized}
+    graph_distance_metric: ${metadata.graph_distance_metric}
+    memory_stores_normalized_features: ${metadata.memory_stores_normalized_features}
+    graph_mode: ${metadata.graph_mode}
+    utility_mode: ${metadata.utility_mode}
+    adversary_scope: ${metadata.adversary_scope}
+    k: 8
+    inner_steps: 10
+    beta: 0.2
+    tau_flow: 0.05
+    alpha_max: 0.0
+    warmup_fraction: 0.0
+    ramp_fraction: 0.0
+    ess_min_ratio: 0.25

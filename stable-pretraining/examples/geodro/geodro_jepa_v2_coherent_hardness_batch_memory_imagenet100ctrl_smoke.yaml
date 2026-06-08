@@ -1,0 +1,37 @@
+# @package _global_
+# GeoDRO-JEPA V2.2 coherent-hardness + batch_memory ImageNet-100ctrl smoke (cell config).
+#
+# Cell config sets the cell axes and the memory floor (capacity, top_m,
+# k_sigma, k_guard, retrieval chunk, threshold mode, null quantile,
+# smoothing graph). Memory edge budgets, ablation modes, and seeds are
+# launcher-driven (see scripts/slurm/geodro_jepa_v2_smoke.sbatch).
+#
+# Standalone-runnable: `python -m stable_pretraining.run ... ` will pass
+# axis validation without launcher overrides.
+
+defaults:
+  - geodro_lejepa_imagenet100ctrl_v1
+  - _self_
+
+metadata:
+  spec_version: geodro_jepa_v2_2_graph_wasserstein
+  aggregation: coherent_hardness
+  geometry_support: batch_memory
+  memory_usage_mode: memory_witnessed
+  utility_mode: view_graph_coherent
+  utility_smoothing_graph: final
+  method: geodro_jepa_v2_coherent_hardness_batch_memory
+  run_role: phase13_smoke
+
+module:
+  geodro_lejepa_loss:
+    geometry_support: ${metadata.geometry_support}
+    memory_usage_mode: ${metadata.memory_usage_mode}
+    utility_smoothing_graph: ${metadata.utility_smoothing_graph}
+    memory_queue_capacity: 512
+    memory_top_m: 64
+    memory_k_sigma: 64
+    memory_k_guard: 64
+    memory_retrieval_chunk_size: 256
+    memory_witness_threshold_mode: shuffled_null_quantile
+    memory_witness_null_quantile: 0.95

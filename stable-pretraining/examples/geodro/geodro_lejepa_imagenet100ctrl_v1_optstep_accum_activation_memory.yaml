@@ -1,0 +1,42 @@
+# @package _global_
+
+defaults:
+  - geodro_lejepa_imagenet100ctrl_v1_optstep_accum_activation
+  - _self_
+
+metadata:
+  geometry_support: batch_memory
+  memory_usage_mode: memory_witnessed
+  memory_update_scope: optimizer_step_delayed
+  run_role: activation_optstep_accum_memory
+
+trainer:
+  logger:
+    name: ${metadata.method}-${metadata.dataset}-${metadata.model}-${metadata.run_role}
+    group: ${metadata.method}/${metadata.dataset}/${metadata.model}/activation-memory
+    tags:
+      - geodro-v1.1
+      - imagenet100ctrl
+      - vits8
+      - optimizer-step
+      - accumulation
+      - activation-pilot
+      - batch-memory
+      - delayed-memory
+
+module:
+  geodro_lejepa_loss:
+    geometry_support: ${metadata.geometry_support}
+    memory_usage_mode: ${metadata.memory_usage_mode}
+    memory_update_scope: ${metadata.memory_update_scope}
+    memory_queue_capacity: 16384
+    memory_top_m: 64
+    memory_k_sigma: 64
+    memory_min_fill_ratio: 0.125
+    memory_retrieval_chunk_size: 512
+    memory_k_guard: 64
+    memory_witness_threshold_mode: shuffled_null_quantile
+    memory_witness_null_quantile: 0.95
+    memory_extra_edges_per_node_max: 2
+    memory_added_edge_ratio_max: 0.25
+    witness_score_mode: specificity_weighted_hellinger

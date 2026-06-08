@@ -1,0 +1,24 @@
+# @package _global_
+# GeoDRO-JEPA V2.2 graph-transport + batch ImageNet-100ctrl smoke (cell config).
+#
+# Cell-only: declares the four cell axes plus the GraphTransport _target_.
+# Shape, GeoDRO core knobs, and V2 memory knobs are launcher-driven (see
+# scripts/slurm/geodro_jepa_v2_smoke.sbatch).
+
+defaults:
+  - geodro_lejepa_imagenet100ctrl_v1
+  - _self_
+
+metadata:
+  spec_version: geodro_jepa_v2_2_graph_wasserstein
+  aggregation: graph_transport
+  geometry_support: batch
+  memory_usage_mode: none
+  utility_mode: view_aware
+  method: geodro_jepa_v2_graph_transport
+  run_role: phase13_smoke
+
+module:
+  geodro_lejepa_loss:
+    _target_: stable_pretraining.geodro_lejepa.GraphTransportGeoDROJEPALoss
+    utility_mode: ${metadata.utility_mode}

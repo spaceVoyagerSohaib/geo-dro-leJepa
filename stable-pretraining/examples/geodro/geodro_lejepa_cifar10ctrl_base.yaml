@@ -1,0 +1,203 @@
+# Shared CIFAR-10 controlled debug surface for GeoDRO-LeJEPA readiness.
+#
+# Do not run this base config directly; use one of:
+#   geodro_lejepa_cifar10ctrl_erm_debug
+#   geodro_lejepa_cifar10ctrl_alpha0_debug
+#   geodro_lejepa_cifar10ctrl_v1_debug
+
+seed: 42
+ckpt_path: null
+
+metadata:
+  spec_version: geodro_lejepa_v1_1_reliability_gated
+  family: geodro_jepa
+  aggregation: coherent_hardness
+  geometry_support: batch
+  memory_usage_mode: none
+  ssl_instantiation: lejepa
+  method: geodro_v1_1
+  dataset: cifar10ctrl
+  model: conv32
+  run_role: sanity
+  seed: ${seed}
+  graph_feature_space: pre_projector_global_center
+  graph_space: ${metadata.graph_feature_space}
+  graph_feature_normalized: true
+  graph_distance_metric: cosine
+  memory_stores_normalized_features: true
+  graph_mode: mutual_knn
+  utility_mode: view_graph_coherent
+  adversary_scope: microbatch
+  local_batch_size: ${data.train.batch_size}
+  global_batch_size: ${data.train.batch_size}
+  accumulate_grad_batches: ${trainer.accumulate_grad_batches}
+  controlled_shift:
+    coherent_labels: [0, 1, 8, 9]
+    isolated_view: global_1
+    isolated_period: 5
+
+trainer:
+  _target_: lightning.Trainer
+  max_steps: 100
+  max_epochs: 1
+  accelerator: auto
+  devices: 1
+  precision: 32-true
+  num_sanity_val_steps: 0
+  limit_val_batches: 2
+  enable_checkpointing: true
+  logger:
+    _target_: lightning.pytorch.loggers.WandbLogger
+    _convert_: object
+    project: ssl-geo-dro
+    name: ${metadata.method}-${metadata.dataset}-${metadata.model}-${metadata.run_role}
+    group: ${metadata.method}/${metadata.dataset}/${metadata.model}/sanity
+    job_type: sanity
+    tags: [geodro-v1.1, cifar10ctrl, sanity]
+    config: ${metadata}
+    log_model: false
+  accumulate_grad_batches: 1
+  callbacks:
+    - _target_: lightning.pytorch.callbacks.ModelCheckpoint
+      dirpath: ${hydra:run.dir}/checkpoints
+      filename: "step_{step:06d}"
+      save_last: true
+      save_top_k: 0
+      every_n_train_steps: 50
+    - _target_: lightning.pytorch.callbacks.LearningRateMonitor
+      logging_interval: step
+
+module:
+  _target_: stable_pretraining.Module
+  backbone:
+    _target_: torch.nn.Sequential
+    _args_:
+      - _target_: torch.nn.Conv2d
+        in_channels: 3
+        out_channels: 64
+        kernel_size: 3
+        stride: 1
+        padding: 1
+      - _target_: torch.nn.BatchNorm2d
+        num_features: 64
+      - _target_: torch.nn.ReLU
+      - _target_: torch.nn.MaxPool2d
+        kernel_size: 2
+      - _target_: torch.nn.Conv2d
+        in_channels: 64
+        out_channels: 128
+        kernel_size: 3
+        stride: 1
+        padding: 1
+      - _target_: torch.nn.BatchNorm2d
+        num_features: 128
+      - _target_: torch.nn.ReLU
+      - _target_: torch.nn.AdaptiveAvgPool2d
+        output_size: [1, 1]
+      - _target_: torch.nn.Flatten
+      - _target_: torch.nn.Linear
+        in_features: 128
+        out_features: 128
+
+  projector:
+    _target_: stable_pretraining.backbone.mlp.MLP
+    in_channels: 128
+    hidden_channels: [256, 128]
+    norm_layer: batch_norm
+
+  optim:
+    optimizer:
+      _target_: torch.optim.AdamW
+      _partial_: true
+      lr: 1e-3
+      weight_decay: 0.01
+    scheduler: LinearWarmupCosineAnnealingLR
+    interval: step
+
+data:
+  _target_: stable_pretraining.data.DataModule
+
+  train:
+    batch_size: 64
+    num_workers: 4
+    drop_last: true
+    shuffle: true
+    dataset:
+      _target_: stable_pretraining.data.datasets.HFDataset
+      path: uoft-cs/cifar10
+      split: train
+      rename_columns:
+        img: image
+      transform:
+        _target_: stable_pretraining.data.transforms.MultiViewTransform
+        transforms:
+          global_0:
+            _target_: stable_pretraining.data.transforms.Compose
+            _args_:
+              - _target_: stable_pretraining.data.transforms.RGB
+              - _target_: stable_pretraining.geodro_lejepa.CIFAR10ControlledCorruption
+                view_name: global_0
+              - _target_: stable_pretraining.data.transforms.RandomResizedCrop
+                size: [32, 32]
+                scale: [0.5, 1.0]
+              - _target_: stable_pretraining.data.transforms.RandomHorizontalFlip
+                p: 0.5
+              - _target_: stable_pretraining.data.transforms.ToImage
+                mean: [0.4914, 0.4822, 0.4465]
+                std: [0.2470, 0.2435, 0.2616]
+          global_1:
+            _target_: stable_pretraining.data.transforms.Compose
+            _args_:
+              - _target_: stable_pretraining.data.transforms.RGB
+              - _target_: stable_pretraining.geodro_lejepa.CIFAR10ControlledCorruption
+                view_name: global_1
+              - _target_: stable_pretraining.data.transforms.RandomResizedCrop
+                size: [32, 32]
+                scale: [0.5, 1.0]
+              - _target_: stable_pretraining.data.transforms.RandomHorizontalFlip
+                p: 0.5
+              - _target_: stable_pretraining.data.transforms.ToImage
+                mean: [0.4914, 0.4822, 0.4465]
+                std: [0.2470, 0.2435, 0.2616]
+          local_0:
+            _target_: stable_pretraining.data.transforms.Compose
+            _args_:
+              - _target_: stable_pretraining.data.transforms.RGB
+              - _target_: stable_pretraining.geodro_lejepa.CIFAR10ControlledCorruption
+                view_name: local_0
+              - _target_: stable_pretraining.data.transforms.RandomResizedCrop
+                size: [24, 24]
+                scale: [0.25, 0.75]
+              - _target_: stable_pretraining.data.transforms.RandomHorizontalFlip
+                p: 0.5
+              - _target_: stable_pretraining.data.transforms.ToImage
+                mean: [0.4914, 0.4822, 0.4465]
+                std: [0.2470, 0.2435, 0.2616]
+
+  val:
+    batch_size: 64
+    num_workers: 4
+    dataset:
+      _target_: stable_pretraining.data.datasets.HFDataset
+      path: uoft-cs/cifar10
+      split: test
+      rename_columns:
+        img: image
+      transform:
+        _target_: stable_pretraining.data.transforms.Compose
+        _args_:
+          - _target_: stable_pretraining.data.transforms.RGB
+          - _target_: stable_pretraining.geodro_lejepa.CIFAR10ControlledCorruption
+            view_name: eval
+            isolated_period: 0
+          - _target_: stable_pretraining.data.transforms.Resize
+            size: [32, 32]
+          - _target_: stable_pretraining.data.transforms.ToImage
+            mean: [0.4914, 0.4822, 0.4465]
+            std: [0.2470, 0.2435, 0.2616]
+
+hydra:
+  run:
+    dir: outputs/geodro-lejepa-cifar10ctrl/${metadata.method}/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  job:
+    chdir: false

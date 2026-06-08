@@ -1,0 +1,387 @@
+# LeJEPA training configuration for ImageNet-100 (ViT-S/8)
+#
+# This config mirrors the paper setup:
+# - Dataset: ImageNet-100
+# - Backbone: ViT-S/8 (vit_small_patch8_224)
+# - Epochs: 400
+# - Views: 2 global (224) + 6 local (96)
+# - Optimizer: AdamW
+# - LR schedule: linear warmup + cosine annealing
+# - Lambda: 0.05
+#
+# Usage:
+#   python -m stable_pretraining.run --config-path examples/baselines --config-name lejepa_vits8_imagenet100
+
+seed: 42
+ckpt_path: null
+
+trainer:
+  _target_: lightning.Trainer
+  max_epochs: 400
+  accelerator: auto
+  devices: auto
+  precision: bf16-mixed
+  num_sanity_val_steps: 0
+  enable_checkpointing: true
+  gradient_clip_val: null
+  # Distributed training settings (can be overridden via CLI)
+  # Default: 1 node × 4 GPUs × 8 accum × 64 batch = 2048 global batch
+  strategy: ddp
+  num_nodes: 1
+  accumulate_grad_batches: 8
+
+  callbacks:
+    # Checkpointing: Save only last + best to minimize storage
+    - _target_: lightning.pytorch.callbacks.ModelCheckpoint
+      dirpath: ${hydra:run.dir}/checkpoints
+      filename: "epoch_{epoch:04d}"
+      save_last: true
+      save_top_k: 1
+      monitor: eval/linear_probe_MulticlassAccuracy
+      mode: max
+      verbose: true
+
+    - _target_: lightning.pytorch.callbacks.LearningRateMonitor
+      logging_interval: step
+
+    - _target_: lightning.pytorch.callbacks.DeviceStatsMonitor
+
+    - _target_: stable_pretraining.callbacks.OnlineProbe
+      _partial_: true
+      name: linear_probe
+      input: embedding
+      target: label
+      probe:
+        _target_: torch.nn.Sequential
+        _args_:
+          - _target_: torch.nn.LayerNorm
+            normalized_shape: 512
+          - _target_: torch.nn.Linear
+            in_features: 512
+            out_features: 100
+      loss_fn:
+        _target_: torch.nn.CrossEntropyLoss
+      metrics:
+        - _target_: torchmetrics.classification.MulticlassAccuracy
+          num_classes: 100
+
+    - _target_: stable_pretraining.callbacks.OnlineKNN
+      name: knn_probe
+      input: embedding
+      target: label
+      queue_length: 20000
+      input_dim: 512
+      k: 10
+      metrics:
+        - _target_: torchmetrics.classification.MulticlassAccuracy
+          num_classes: 100
+
+  logger:
+    _target_: lightning.pytorch.loggers.WandbLogger
+    project: lejepa-vits8-imagenet100
+    log_model: false
+    name: lejepa-vits8-imagenet100
+
+module:
+  _target_: stable_pretraining.Module
+  forward:
+    _target_: stable_pretraining.forward.lejepa_forward
+    _partial_: true
+
+  backbone:
+    _target_: stable_pretraining.backbone.from_timm
+    model_name: vit_small_patch8_224
+    pretrained: false
+    num_classes: 512
+    drop_path_rate: 0.1
+    img_size: 224
+    # Enable dynamic size to support local (96x96) and global (224x224) views
+    dynamic_img_size: true
+
+  projector:
+    _target_: stable_pretraining.backbone.mlp.MLP
+    in_channels: 512
+    hidden_channels: [2048, 2048, 512]
+    norm_layer: batch_norm
+
+  lejepa_loss:
+    _target_: stable_pretraining.losses.LeJEPALoss
+    lambda_: 0.05
+    num_slices: 1024
+    t_max: 5.0
+    n_points: 17
+
+  optim:
+    optimizer:
+      _target_: torch.optim.AdamW
+      _partial_: true
+      lr: 5e-4
+      weight_decay: 0.05
+    scheduler: LinearWarmupCosineAnnealingLR
+    interval: step
+
+data:
+  _target_: stable_pretraining.data.DataModule
+
+  train:
+    batch_size: 512
+    num_workers: 8
+    drop_last: true
+    shuffle: true
+    dataset:
+      _target_: stable_pretraining.data.datasets.HFDataset
+      path: ilee0022/ImageNet100
+      split: train
+      # Use auto-converted Parquet files (required for datasets>=4.0 since loading scripts
+      # are no longer supported)
+      revision: refs/convert/parquet
+      transform:
+        _target_: stable_pretraining.data.transforms.MultiViewTransform
+        transforms:
+          # Paper-style multi-crop: 2 global (224) + 6 local (96)
+          global_0:
+            _target_: stable_pretraining.data.transforms.Compose
+            _args_:
+              - _target_: stable_pretraining.data.transforms.RGB
+              - _target_: stable_pretraining.data.transforms.RandomResizedCrop
+                size: [224, 224]
+                scale: [0.3, 1.0]
+              - _target_: stable_pretraining.data.transforms.ColorJitter
+                brightness: 0.4
+                contrast: 0.4
+                saturation: 0.2
+                hue: 0.1
+                p: 0.8
+              - _target_: stable_pretraining.data.transforms.RandomGrayscale
+                p: 0.2
+              - _target_: stable_pretraining.data.transforms.GaussianBlur
+                kernel_size: 23
+                sigma: [0.1, 2.0]
+                p: 0.5
+              - _target_: stable_pretraining.data.transforms.RandomSolarize
+                threshold: 128
+                p: 0.2
+              - _target_: stable_pretraining.data.transforms.RandomHorizontalFlip
+                p: 0.5
+              - _target_: stable_pretraining.data.transforms.ToImage
+                mean: [0.485, 0.456, 0.406]
+                std: [0.229, 0.224, 0.225]
+          global_1:
+            _target_: stable_pretraining.data.transforms.Compose
+            _args_:
+              - _target_: stable_pretraining.data.transforms.RGB
+              - _target_: stable_pretraining.data.transforms.RandomResizedCrop
+                size: [224, 224]
+                scale: [0.3, 1.0]
+              - _target_: stable_pretraining.data.transforms.ColorJitter
+                brightness: 0.4
+                contrast: 0.4
+                saturation: 0.2
+                hue: 0.1
+                p: 0.8
+              - _target_: stable_pretraining.data.transforms.RandomGrayscale
+                p: 0.2
+              - _target_: stable_pretraining.data.transforms.GaussianBlur
+                kernel_size: 23
+                sigma: [0.1, 2.0]
+                p: 0.5
+              - _target_: stable_pretraining.data.transforms.RandomSolarize
+                threshold: 128
+                p: 0.2
+              - _target_: stable_pretraining.data.transforms.RandomHorizontalFlip
+                p: 0.5
+              - _target_: stable_pretraining.data.transforms.ToImage
+                mean: [0.485, 0.456, 0.406]
+                std: [0.229, 0.224, 0.225]
+          local_0:
+            _target_: stable_pretraining.data.transforms.Compose
+            _args_:
+              - _target_: stable_pretraining.data.transforms.RGB
+              - _target_: stable_pretraining.data.transforms.RandomResizedCrop
+                size: [96, 96]
+                scale: [0.05, 0.3]
+              - _target_: stable_pretraining.data.transforms.ColorJitter
+                brightness: 0.4
+                contrast: 0.4
+                saturation: 0.2
+                hue: 0.1
+                p: 0.8
+              - _target_: stable_pretraining.data.transforms.RandomGrayscale
+                p: 0.2
+              - _target_: stable_pretraining.data.transforms.GaussianBlur
+                kernel_size: 9
+                sigma: [0.1, 2.0]
+                p: 0.5
+              - _target_: stable_pretraining.data.transforms.RandomSolarize
+                threshold: 128
+                p: 0.2
+              - _target_: stable_pretraining.data.transforms.RandomHorizontalFlip
+                p: 0.5
+              - _target_: stable_pretraining.data.transforms.ToImage
+                mean: [0.485, 0.456, 0.406]
+                std: [0.229, 0.224, 0.225]
+          local_1:
+            _target_: stable_pretraining.data.transforms.Compose
+            _args_:
+              - _target_: stable_pretraining.data.transforms.RGB
+              - _target_: stable_pretraining.data.transforms.RandomResizedCrop
+                size: [96, 96]
+                scale: [0.05, 0.3]
+              - _target_: stable_pretraining.data.transforms.ColorJitter
+                brightness: 0.4
+                contrast: 0.4
+                saturation: 0.2
+                hue: 0.1
+                p: 0.8
+              - _target_: stable_pretraining.data.transforms.RandomGrayscale
+                p: 0.2
+              - _target_: stable_pretraining.data.transforms.GaussianBlur
+                kernel_size: 9
+                sigma: [0.1, 2.0]
+                p: 0.5
+              - _target_: stable_pretraining.data.transforms.RandomSolarize
+                threshold: 128
+                p: 0.2
+              - _target_: stable_pretraining.data.transforms.RandomHorizontalFlip
+                p: 0.5
+              - _target_: stable_pretraining.data.transforms.ToImage
+                mean: [0.485, 0.456, 0.406]
+                std: [0.229, 0.224, 0.225]
+          local_2:
+            _target_: stable_pretraining.data.transforms.Compose
+            _args_:
+              - _target_: stable_pretraining.data.transforms.RGB
+              - _target_: stable_pretraining.data.transforms.RandomResizedCrop
+                size: [96, 96]
+                scale: [0.05, 0.3]
+              - _target_: stable_pretraining.data.transforms.ColorJitter
+                brightness: 0.4
+                contrast: 0.4
+                saturation: 0.2
+                hue: 0.1
+                p: 0.8
+              - _target_: stable_pretraining.data.transforms.RandomGrayscale
+                p: 0.2
+              - _target_: stable_pretraining.data.transforms.GaussianBlur
+                kernel_size: 9
+                sigma: [0.1, 2.0]
+                p: 0.5
+              - _target_: stable_pretraining.data.transforms.RandomSolarize
+                threshold: 128
+                p: 0.2
+              - _target_: stable_pretraining.data.transforms.RandomHorizontalFlip
+                p: 0.5
+              - _target_: stable_pretraining.data.transforms.ToImage
+                mean: [0.485, 0.456, 0.406]
+                std: [0.229, 0.224, 0.225]
+          local_3:
+            _target_: stable_pretraining.data.transforms.Compose
+            _args_:
+              - _target_: stable_pretraining.data.transforms.RGB
+              - _target_: stable_pretraining.data.transforms.RandomResizedCrop
+                size: [96, 96]
+                scale: [0.05, 0.3]
+              - _target_: stable_pretraining.data.transforms.ColorJitter
+                brightness: 0.4
+                contrast: 0.4
+                saturation: 0.2
+                hue: 0.1
+                p: 0.8
+              - _target_: stable_pretraining.data.transforms.RandomGrayscale
+                p: 0.2
+              - _target_: stable_pretraining.data.transforms.GaussianBlur
+                kernel_size: 9
+                sigma: [0.1, 2.0]
+                p: 0.5
+              - _target_: stable_pretraining.data.transforms.RandomSolarize
+                threshold: 128
+                p: 0.2
+              - _target_: stable_pretraining.data.transforms.RandomHorizontalFlip
+                p: 0.5
+              - _target_: stable_pretraining.data.transforms.ToImage
+                mean: [0.485, 0.456, 0.406]
+                std: [0.229, 0.224, 0.225]
+          local_4:
+            _target_: stable_pretraining.data.transforms.Compose
+            _args_:
+              - _target_: stable_pretraining.data.transforms.RGB
+              - _target_: stable_pretraining.data.transforms.RandomResizedCrop
+                size: [96, 96]
+                scale: [0.05, 0.3]
+              - _target_: stable_pretraining.data.transforms.ColorJitter
+                brightness: 0.4
+                contrast: 0.4
+                saturation: 0.2
+                hue: 0.1
+                p: 0.8
+              - _target_: stable_pretraining.data.transforms.RandomGrayscale
+                p: 0.2
+              - _target_: stable_pretraining.data.transforms.GaussianBlur
+                kernel_size: 9
+                sigma: [0.1, 2.0]
+                p: 0.5
+              - _target_: stable_pretraining.data.transforms.RandomSolarize
+                threshold: 128
+                p: 0.2
+              - _target_: stable_pretraining.data.transforms.RandomHorizontalFlip
+                p: 0.5
+              - _target_: stable_pretraining.data.transforms.ToImage
+                mean: [0.485, 0.456, 0.406]
+                std: [0.229, 0.224, 0.225]
+          local_5:
+            _target_: stable_pretraining.data.transforms.Compose
+            _args_:
+              - _target_: stable_pretraining.data.transforms.RGB
+              - _target_: stable_pretraining.data.transforms.RandomResizedCrop
+                size: [96, 96]
+                scale: [0.05, 0.3]
+              - _target_: stable_pretraining.data.transforms.ColorJitter
+                brightness: 0.4
+                contrast: 0.4
+                saturation: 0.2
+                hue: 0.1
+                p: 0.8
+              - _target_: stable_pretraining.data.transforms.RandomGrayscale
+                p: 0.2
+              - _target_: stable_pretraining.data.transforms.GaussianBlur
+                kernel_size: 9
+                sigma: [0.1, 2.0]
+                p: 0.5
+              - _target_: stable_pretraining.data.transforms.RandomSolarize
+                threshold: 128
+                p: 0.2
+              - _target_: stable_pretraining.data.transforms.RandomHorizontalFlip
+                p: 0.5
+              - _target_: stable_pretraining.data.transforms.ToImage
+                mean: [0.485, 0.456, 0.406]
+                std: [0.229, 0.224, 0.225]
+
+  val:
+    batch_size: 512
+    num_workers: 8
+    dataset:
+      _target_: stable_pretraining.data.datasets.HFDataset
+      path: ilee0022/ImageNet100
+      split: validation
+      # Use auto-converted Parquet files (required for datasets>=4.0 since loading scripts
+      # are no longer supported)
+      revision: refs/convert/parquet
+      transform:
+        _target_: stable_pretraining.data.transforms.Compose
+        _args_:
+          - _target_: stable_pretraining.data.transforms.RGB
+          - _target_: stable_pretraining.data.transforms.Resize
+            size: [224, 224]
+          - _target_: stable_pretraining.data.transforms.CenterCrop
+            size: [224, 224]
+          - _target_: stable_pretraining.data.transforms.ToImage
+            mean: [0.485, 0.456, 0.406]
+            std: [0.229, 0.224, 0.225]
+
+hydra:
+  run:
+    dir: outputs/lejepa-vits8-imagenet100/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweep:
+    dir: multirun/lejepa-vits8-imagenet100/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  job:
+    chdir: false

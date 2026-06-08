@@ -1,0 +1,27 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "lejepa"
+version = "0.0.1"
+dependencies = ["torch", "numpy", "loguru", "pytest"]
+requires-python = ">=3.8"
+authors = [
+  {name = "Randall Balestriero", email = "randallbalestriero@gmail.com"},
+]
+maintainers = [
+  {name = "Randall Balestriero", email = "randallbalestriero@gmail.com"}
+]
+description = "LeJEPA: Lean Joint-Embedding Predictive Architecture (statistical primitives)."
+readme = "README.md"
+license-files = ["LICEN[CS]E.*"]
+classifiers = [
+  "Programming Language :: Python",
+  "License :: Other/Proprietary License",
+]
+
+[project.urls]
+Homepage = "https://github.com/galilai-group/lejepa"
+Repository = "https://github.com/galilai-group/lejepa"
+Paper = "https://arxiv.org/abs/2511.08544"

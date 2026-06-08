@@ -1,0 +1,13 @@
+# @package _global_
+
+defaults:
+  - geodro_lejepa_imagenet100ctrl_base
+  - _self_
+
+metadata:
+  method: lejepa_erm
+  run_role: main_erm
+
+trainer:
+  logger:
+    tags: [baseline, imagenet100ctrl, vits8, main]

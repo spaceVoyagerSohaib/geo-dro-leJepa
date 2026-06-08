@@ -1,0 +1,40 @@
+# GeoDRO-JEPA GraphTransport + batch-memory smoke configuration.
+#
+# Purpose:
+#   Verify that GraphTransport can use optional memory geometry support while
+#   keeping graph flow current-only and ignoring graph-neighbor utility
+#   smoothing.
+#
+# Usage:
+#   python -m stable_pretraining.run --config-path examples/geodro \
+#     --config-name geodro_jepa_graph_transport_batch_memory_fake_data_smoke
+
+defaults:
+  - geodro_jepa_graph_transport_fake_data_smoke
+  - _self_
+
+metadata:
+  geometry_support: batch_memory
+  memory_usage_mode: memory_witnessed
+  method: geodro_jepa_graph_transport_batch_memory
+  run_role: graph_transport_batch_memory_smoke
+  utility_smoothing_graph: final
+
+module:
+  geodro_lejepa_loss:
+    geometry_support: ${metadata.geometry_support}
+    memory_usage_mode: ${metadata.memory_usage_mode}
+    memory_queue_capacity: 128
+    memory_top_m: 16
+    memory_k_sigma: 16
+    memory_min_fill_ratio: 0.25
+    memory_retrieval_chunk_size: 64
+    memory_k_guard: 16
+    memory_witness_score_min: 0.0
+    memory_witness_threshold_mode: explicit
+    memory_witness_null_quantile: 0.95
+    memory_witness_ablation_mode: none
+    memory_witness_null_seed: 0
+    memory_extra_edges_per_node_max: 2
+    memory_added_edge_ratio_max: 0.25
+    utility_smoothing_graph: ${metadata.utility_smoothing_graph}
