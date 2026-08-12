@@ -1,6 +1,6 @@
-# geo-dro-jepa
+# geo-dro-leJepa
 
-**Geometry-Aware Robust Aggregation for Self-Supervised Representation Learning**  This repository ships alongside the thesis and contains exactly the code, Hydra configs, and launcher scripts needed to reproduce the GeoDRO-LeJEPA experiments — 
+**Geometry-Aware Robust Aggregation for Self-Supervised Representation Learning**  This repository the code, Hydra configs, and launcher scripts needed to reproduce the GeoDRO-LeJEPA experiments — 
 
 The original contribution of this work is the `stable_pretraining/geodro_lejepa/` subpackage and its associated configs, tests, and SLURM launchers. Two upstream packages — `lejepa` and `stable-pretraining` — are re-distributed here so the project is buildable from a single clone.
 
