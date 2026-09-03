@@ -12,6 +12,8 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Literal
 
+from scripts._eval_metrics import clean_vs_shifted_gap
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 OUTPUTS_DIR = PROJECT_ROOT / "outputs"
 LOGS_DIR = PROJECT_ROOT / "logs"
@@ -334,7 +336,7 @@ def load_eval_metrics(path: Path) -> dict[str, Any] | None:
 
 
 def flatten_mode_metrics(payload: dict[str, Any]) -> dict[str, Any]:
-    """Merge mode metrics; normalize imagenet100c keys onto imagenet100c/ prefix."""
+    """Merge mode metrics and enforce epoch-consistent clean/shift gaps."""
     metrics = dict(payload.get("metrics") or {})
     mode = payload.get("mode", "")
     flat: dict[str, Any] = {}
@@ -344,7 +346,38 @@ def flatten_mode_metrics(payload: dict[str, Any]) -> dict[str, Any]:
         for key, value in list(metrics.items()):
             if key.startswith("imagenetc/"):
                 flat[f"imagenet100c/{key[len('imagenetc/'):]}"] = value
+    recompute_epoch_consistent_gap(mode, flat)
     return flat
+
+
+def recompute_epoch_consistent_gap(mode: str, flat: dict[str, Any]) -> None:
+    """Replace stale best-clean/final-shift gaps with final/final gaps."""
+    clean_acc = flat.get("monitor/final_acc")
+    if mode == "imagenet100c":
+        gap_keys = (
+            "imagenetc/clean_vs_corrupted_gap",
+            "imagenet100c/clean_vs_corrupted_gap",
+        )
+        shifted_acc = flat.get("imagenetc/mean_acc")
+        if shifted_acc is None:
+            shifted_acc = flat.get("imagenet100c/mean_acc")
+    elif mode in {"imagenet_sketch", "imagenet_r", "imagenet_a"}:
+        gap_keys = (f"{mode}/clean_vs_shifted_gap",)
+        shifted_acc = flat.get(f"{mode}/val/acc")
+        if shifted_acc is None:
+            shifted_acc = flat.get(f"{mode}/val/top1_acc")
+    else:
+        return
+
+    for key in gap_keys:
+        flat.pop(key, None)
+    if not isinstance(clean_acc, (int, float)) or not isinstance(
+        shifted_acc, (int, float)
+    ):
+        return
+    gap = clean_vs_shifted_gap(float(clean_acc), float(shifted_acc))
+    for key in gap_keys:
+        flat[key] = gap
 
 
 def eval_status_without_metrics(

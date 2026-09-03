@@ -918,9 +918,8 @@ def run_imagenetc(args, feature_extractor, feature_dim, wandb_run=None):
         for k, v in mean_corruption_error(per_corruption_acc).items():
             flat[f"imagenetc/{k}"] = v
 
-    # Clean-vs-corrupted gap, using the in-distribution monitor accuracy
-    # captured during probe training.
-    clean_acc = float(train_metrics.get("monitor/best_acc") or 0.0)
+    # Compare final-epoch clean and shifted accuracy from the same probe.
+    clean_acc = float(train_metrics.get("monitor/final_acc") or 0.0)
     mean_corrupted_acc = float(flat.get("imagenetc/mean_acc") or 0.0)
     if clean_acc > 0 and mean_corrupted_acc > 0:
         flat["imagenetc/clean_vs_corrupted_gap"] = clean_vs_shifted_gap(
@@ -1308,7 +1307,7 @@ def _run_imagenet_shifted_variant(
             knn_k=args.knn_k,
         )
     )
-    clean_acc = float(train_metrics.get("monitor/best_acc") or 0.0)
+    clean_acc = float(train_metrics.get("monitor/final_acc") or 0.0)
     shifted_acc = float(metrics.get(f"{variant}/val/acc") or 0.0)
     if clean_acc > 0 and shifted_acc > 0:
         metrics[f"{variant}/clean_vs_shifted_gap"] = clean_vs_shifted_gap(clean_acc, shifted_acc)

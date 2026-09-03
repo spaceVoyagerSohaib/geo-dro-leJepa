@@ -163,7 +163,7 @@ def validate_imagenetc_derivatives(
                 f"expected {expected_mce}"
             )
 
-    clean_acc = metrics.get("monitor/best_acc")
+    clean_acc = metrics.get("monitor/final_acc")
     corrupted_acc = metrics.get("imagenetc/mean_acc")
     actual_gap = collector.metric_get(metrics, "imagenet100c/clean_vs_corrupted_gap")
     if isinstance(clean_acc, (int, float)) and isinstance(corrupted_acc, (int, float)):

@@ -5,6 +5,7 @@ import pytest
 from scripts.collect_full_eval_metrics import (
     collect_evals_for_run,
     eval_status_without_metrics,
+    flatten_mode_metrics,
 )
 from scripts.validate_full_eval_matrix import method_matches
 
@@ -63,3 +64,52 @@ def test_validator_accepts_historical_method_aliases():
     assert method_matches("geodro_v1_1", "geodro_v1_1_r4")
     assert method_matches("geodro_v1_1", "geodro_v1_1_r6")
     assert not method_matches("geodro_v1_1", "lejepa_erm")
+
+
+def test_imagenetc_gap_is_recomputed_from_final_clean_epoch():
+    flat = flatten_mode_metrics(
+        {
+            "mode": "imagenet100c",
+            "metrics": {
+                "monitor/best_acc": 0.9,
+                "monitor/final_acc": 0.8,
+                "imagenetc/mean_acc": 0.6,
+                "imagenetc/clean_vs_corrupted_gap": 0.3,
+            },
+        }
+    )
+
+    assert flat["imagenetc/clean_vs_corrupted_gap"] == pytest.approx(0.2)
+    assert flat["imagenet100c/clean_vs_corrupted_gap"] == pytest.approx(0.2)
+
+
+@pytest.mark.parametrize("mode", ["imagenet_sketch", "imagenet_r", "imagenet_a"])
+def test_natural_shift_gap_is_recomputed_from_final_clean_epoch(mode):
+    flat = flatten_mode_metrics(
+        {
+            "mode": mode,
+            "metrics": {
+                "monitor/best_acc": 0.9,
+                "monitor/final_acc": 0.75,
+                f"{mode}/val/acc": 0.55,
+                f"{mode}/clean_vs_shifted_gap": 0.35,
+            },
+        }
+    )
+
+    assert flat[f"{mode}/clean_vs_shifted_gap"] == pytest.approx(0.2)
+
+
+def test_stale_gap_is_removed_when_final_clean_accuracy_is_unavailable():
+    flat = flatten_mode_metrics(
+        {
+            "mode": "imagenet_r",
+            "metrics": {
+                "monitor/best_acc": 0.9,
+                "imagenet_r/val/acc": 0.55,
+                "imagenet_r/clean_vs_shifted_gap": 0.35,
+            },
+        }
+    )
+
+    assert "imagenet_r/clean_vs_shifted_gap" not in flat

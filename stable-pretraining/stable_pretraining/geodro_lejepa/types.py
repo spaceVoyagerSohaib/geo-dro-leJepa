@@ -293,6 +293,13 @@ class FlowDiagnostics:
     ess_ratio: float
     flow_num_steps: int
     fell_back_to_uniform: bool = False
+    accepted_substeps: int = 0
+    rejected_substeps: int = 0
+    minimum_accepted_dt: float = 0.0
+    requested_horizon: float = 0.0
+    completed_horizon: float = 0.0
+    raw_utility_gain: float = 0.0
+    regularized_objective_gain: float = 0.0
 
 
 @dataclass(frozen=True)
