@@ -1,6 +1,6 @@
 # NOTICE
 
-This repository — **geo-dro-jepa** — is the reference implementation accompanying my Master's thesis *Geometry-Aware Robust Aggregation for Self-Supervised Representation Learning* (with LMU Munich, supervised by Dr. Mina Rezaei).
+This repository — **geo-dro-leJepa** — is the reference implementation accompanying my Master's thesis *Geometry-Aware Robust Aggregation for Self-Supervised Representation Learning* (with LMU Munich, supervised by Dr. Mina Rezaei).
 
 It bundles two third-party Python packages that have been **adapted and re-distributed** here so the project builds from a single clone. This file records the upstream credit, license terms, and the modifications introduced for the thesis.
 

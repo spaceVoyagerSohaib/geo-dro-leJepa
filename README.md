@@ -18,7 +18,7 @@ The original GeoDRO-LeJEPA contribution is licensed under MIT — see [`LICENSE`
 ## Repository layout
 
 ```text
-geo-dro-jepa/
+geo-dro-leJepa/
 ├── lejepa/                          # vendored statistical primitives (SIGReg, normality tests)
 │   ├── lejepa/                      # source: univariate/, multivariate/
 │   ├── tests/                       # deterministic CPU pytest suite
