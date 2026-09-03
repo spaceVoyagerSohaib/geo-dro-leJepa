@@ -1,6 +1,5 @@
 import numpy as np
 from .bhep import BHEP
-import numpy as np
 import torch
 from typing import Union
 from .base import MultivariatetTest

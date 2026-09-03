@@ -8,6 +8,7 @@ description = "Stable Pretraining Library for Self-Supervised Learning"
 authors = []
 license = {text = "MIT"}
 readme = {file = "README.md", content-type = "text/markdown"}
+requires-python = ">=3.10"
 dependencies = [
     "torch",
     "torchvision",
@@ -33,7 +34,6 @@ dependencies = [
     "datasets",
     "psutil",
     "pyarrow==20.0.0",
-    "minari[hdf5]>=0.5.3",
     "scikit-learn>=1.7.0",
     "richuru",
     "lejepa",
@@ -51,9 +51,9 @@ stablepretraining_callbacks = "stable_pretraining.callbacks.factories:default"
 include = ["stable_pretraining*"]
 
 [tool.setuptools_scm]
+root = ".."
 tag_regex = "^v(?P<version>.+)$"
-write_to = "stable_pretraining/_version.py"
-write_to_template = "version = \"{version}\"\n"
+fallback_version = "0.0.0"
 
 [project.optional-dependencies]
 # Development and documentation tools
@@ -78,6 +78,13 @@ dev = [
 # script; users not running that dataset can skip this extra.
 eval = [
     "wilds",
+    "pyyaml>=6.0",
+]
+
+# Optional dependency for the inherited Minari adapter integration test. Minari
+# is not part of the SSL training runtime.
+rl-test = [
+    "minari[hdf5]>=0.5.3",
 ]
 
 

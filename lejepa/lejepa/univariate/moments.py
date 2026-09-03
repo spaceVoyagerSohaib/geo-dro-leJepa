@@ -18,8 +18,8 @@ class Moments(UnivariateTest):
         for i in range(2, k_max + 1, 2):
             moment_val = norm(loc=0, scale=1).moment(i)
             moments.append(moment_val)
-        self.register_buffer(f"moments", torch.Tensor(moments).unsqueeze(1))
-        self.register_buffer(f"weights", torch.arange(2, self.k_max + 1).neg().exp())
+        self.register_buffer("moments", torch.Tensor(moments).unsqueeze(1))
+        self.register_buffer("weights", torch.arange(2, self.k_max + 1).neg().exp())
 
     def forward(self, x):
         x = self.prepare_data(x)

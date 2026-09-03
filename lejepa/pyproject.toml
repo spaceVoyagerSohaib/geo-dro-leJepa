@@ -5,8 +5,8 @@ build-backend = "hatchling.build"
 [project]
 name = "lejepa"
 version = "0.0.1"
-dependencies = ["torch", "numpy", "loguru", "pytest"]
-requires-python = ">=3.8"
+dependencies = ["torch", "numpy", "scipy"]
+requires-python = ">=3.10"
 authors = [
   {name = "Randall Balestriero", email = "randallbalestriero@gmail.com"},
 ]
@@ -25,3 +25,13 @@ classifiers = [
 Homepage = "https://github.com/galilai-group/lejepa"
 Repository = "https://github.com/galilai-group/lejepa"
 Paper = "https://arxiv.org/abs/2511.08544"
+
+[project.optional-dependencies]
+dev = ["pytest", "ruff"]
+
+[tool.pytest.ini_options]
+markers = [
+  "unit: deterministic unit test",
+  "integration: integration test",
+  "gpu: requires a GPU",
+]

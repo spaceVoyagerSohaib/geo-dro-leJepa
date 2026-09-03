@@ -1,7 +1,6 @@
 import numpy as np
 import torch
 from .base import MultivariatetTest
-import torch
 from typing import Union
 
 

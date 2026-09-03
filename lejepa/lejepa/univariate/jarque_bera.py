@@ -1,4 +1,3 @@
-import torch
 from .base import UnivariateTest
 
 
