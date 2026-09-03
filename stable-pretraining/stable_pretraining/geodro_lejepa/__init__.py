@@ -7,6 +7,7 @@ from .loss import (
     GraphTransportGeoDROJEPALoss,
 )
 from .memory import GeoDROFeatureMemoryQueue
+from .optimization_policy import GeoDROOptimizerStepPolicy
 from .witness import compute_witness_overlap_scores
 from .controlled import (
     CIFAR10ControlledCorruption,
@@ -52,6 +53,7 @@ __all__ = [
     "GeoDROFamily",
     "GeoDROLeJEPALoss",
     "GeoDROLeJEPALossOutput",
+    "GeoDROOptimizerStepPolicy",
     "GeoDROFeatureMemoryQueue",
     "GeometrySupport",
     "GraphDistanceMetric",

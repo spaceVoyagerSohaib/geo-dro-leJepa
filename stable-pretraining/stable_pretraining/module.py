@@ -15,6 +15,7 @@ from .optim import create_optimizer, create_scheduler
 from typing import Any, Set
 import time
 from stable_pretraining.utils.error_handling import catch_errors_class
+from .optimization_policy import resolve_optimization_policy
 
 
 @catch_errors_class()
@@ -68,7 +69,14 @@ class Module(pl.LightningModule):
     - Returns the `state` dict from `forward` unchanged for logging/inspection.
     """
 
-    def __init__(self, *args, forward: callable = None, hparams: dict = None, **kwargs):
+    def __init__(
+        self,
+        *args,
+        forward: callable = None,
+        hparams: dict = None,
+        optimization_policy=None,
+        **kwargs,
+    ):
         super().__init__()
         logging.info("Initializing Module configuration...")
 
@@ -81,6 +89,8 @@ class Module(pl.LightningModule):
         self._optimizer_frequencies = {}
         self._optimizer_gradient_clip_val = {}
         self._optimizer_gradient_clip_algorithm = {}
+        self._optimization_policy = optimization_policy
+        self._resolved_optimization_policy = None
 
         if len(args) > 0:
             raise ValueError(
@@ -197,20 +207,6 @@ class Module(pl.LightningModule):
     def after_manual_backward(self):
         pass
 
-    def _uses_geodro_optimizer_step_scope(self) -> bool:
-        loss_fn = getattr(self, "geodro_lejepa_loss", None)
-        if loss_fn is None:
-            return False
-        try:
-            from stable_pretraining.geodro_lejepa.types import AdversaryScope
-
-            scope = AdversaryScope(
-                getattr(loss_fn, "adversary_scope", AdversaryScope.MICROBATCH.value)
-            )
-        except ValueError:
-            return False
-        return scope == AdversaryScope.OPTIMIZER_STEP
-
     def _manual_optimization_handles(self):
         optimizers = self.optimizers()
         if isinstance(optimizers, pl.pytorch.core.optimizer._MockOptimizer):
@@ -283,48 +279,12 @@ class Module(pl.LightningModule):
         When multiple optimizers are configured, the same loss is used for all of them.
         Each optimizer updates its assigned parameters based on gradients from this joint loss.
         """
-        if self._uses_geodro_optimizer_step_scope():
-            from stable_pretraining.geodro_lejepa.optimizer_step import (
-                optimizer_step_training_step,
+        if self._resolved_optimization_policy is None:
+            self._resolved_optimization_policy = resolve_optimization_policy(
+                self,
+                self._optimization_policy,
             )
-
-            return optimizer_step_training_step(self, batch, batch_idx)
-
-        if type(batch) is not dict:
-            msg = f"batch is expected to be a dict! Not as {type(batch)}"
-            logging.warning(msg)
-            raise ValueError(msg)
-        batch["batch_idx"] = batch_idx
-        state = self(batch, stage="fit")
-
-        optimizers, has_mock_optimizer = self._manual_optimization_handles()
-        if has_mock_optimizer:
-            return state
-
-        accum_steps = max(
-            int(
-                getattr(
-                    self.trainer,
-                    "accumulate_grad_batches_",
-                    getattr(self.trainer, "accumulate_grad_batches", 1),
-                )
-            ),
-            1,
-        )
-
-        loss = state["loss"]
-        if accum_steps > 1:
-            loss = loss / accum_steps
-
-        # Compute gradients once for the joint loss
-        self.manual_backward(loss)
-        self.after_manual_backward()
-
-        if (batch_idx + 1) % accum_steps != 0:
-            return state
-
-        self._step_manual_optimizers(optimizers, batch_idx, accum_steps)
-        return state
+        return self._resolved_optimization_policy.training_step(self, batch, batch_idx)
 
     def _step_scheduler(self, scheduler_cfg):
         scheduler = getattr(scheduler_cfg, "scheduler", scheduler_cfg)

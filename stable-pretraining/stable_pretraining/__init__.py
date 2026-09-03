@@ -52,6 +52,7 @@ from .callbacks import (
 from .callbacks.registry import log
 from .manager import Manager
 from .module import Module
+from .optimization_policy import OptimizationPolicy, StandardOptimizationPolicy
 from .utils.lightning_patch import apply_manual_optimization_patch
 
 # Conditionally import callbacks that depend on optional packages
@@ -89,6 +90,8 @@ __all__ = [
     # Classes
     "Manager",
     "Module",
+    "OptimizationPolicy",
+    "StandardOptimizationPolicy",
     "TeacherStudentWrapper",
     "log",
     # Package info

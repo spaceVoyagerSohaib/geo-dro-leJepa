@@ -29,7 +29,7 @@ def test_module_initialization():
 
 
 @pytest.mark.integration
-def test_module_integration():
+def test_module_integration(tmp_path):
     """Integration test for the Module class with multiple optimizers.
 
     trainer.fit() is called to ensure configure_optimizers work as expected.
@@ -69,6 +69,7 @@ def test_module_integration():
 
     # Define the trainer
     trainer = Trainer(
+        default_root_dir=tmp_path,
         max_epochs=0,
         num_sanity_val_steps=0,
         callbacks=[],

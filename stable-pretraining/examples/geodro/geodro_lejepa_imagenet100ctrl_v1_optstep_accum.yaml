@@ -25,3 +25,7 @@ data:
     batch_size: 128
   val:
     batch_size: 128
+
+module:
+  optimization_policy:
+    _target_: stable_pretraining.geodro_lejepa.GeoDROOptimizerStepPolicy

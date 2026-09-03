@@ -79,6 +79,8 @@ class _BaseGeoDROJEPALoss(nn.Module):
         tau_flow: float = 0.05,
         p_floor: float = 1e-12,
         eps_log: float = 1e-12,
+        max_flow_substeps: int | None = None,
+        flow_objective_tolerance: float = 1e-7,
         alpha_max: float = 0.5,
         warmup_fraction: float = 0.10,
         ramp_fraction: float = 0.05,
@@ -223,6 +225,10 @@ class _BaseGeoDROJEPALoss(nn.Module):
         self.tau_flow = tau_flow
         self.p_floor = p_floor
         self.eps_log = eps_log
+        self.max_flow_substeps = (
+            None if max_flow_substeps is None else int(max_flow_substeps)
+        )
+        self.flow_objective_tolerance = float(flow_objective_tolerance)
         self.alpha_max = alpha_max
         self.warmup_fraction = warmup_fraction
         self.ramp_fraction = ramp_fraction
@@ -234,6 +240,22 @@ class _BaseGeoDROJEPALoss(nn.Module):
             int(min_graph_nodes) if min_graph_nodes is not None else max(4 * self.k, 64)
         )
         self.p_cap = p_cap
+
+    def create_optimization_policy(self):
+        """Provide the legacy optimizer-step adapter for old configurations."""
+        if self.adversary_scope != AdversaryScope.OPTIMIZER_STEP:
+            return None
+        if not getattr(self, "_optimization_policy_warning_emitted", False):
+            warnings.warn(
+                "Implicit optimizer-policy discovery is deprecated; configure "
+                "module.optimization_policy with GeoDROOptimizerStepPolicy.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            self._optimization_policy_warning_emitted = True
+        from .optimization_policy import GeoDROOptimizerStepPolicy
+
+        return GeoDROOptimizerStepPolicy()
 
     def forward(
         self,
@@ -398,6 +420,8 @@ class _BaseGeoDROJEPALoss(nn.Module):
             tau_flow=self.tau_flow,
             p_floor=self.p_floor,
             eps_log=self.eps_log,
+            max_substeps=self.max_flow_substeps,
+            objective_tolerance=self.flow_objective_tolerance,
         )
         p_global, weight_diag = reliability_gated_weights(
             p_flow,

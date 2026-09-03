@@ -53,7 +53,9 @@ from stable_pretraining.geodro_lejepa.optimizer_step import (
     _CollectedMicrobatch,
     _accumulation_corrected_total_steps,
     _solve_step_weights,
-    optimizer_step_training_step,
+)
+from stable_pretraining.geodro_lejepa.optimization_policy import (
+    GeoDROOptimizerStepPolicy,
 )
 from stable_pretraining.geodro_lejepa.prediction import compute_prediction_terms
 from stable_pretraining.geodro_lejepa.types import (
@@ -2771,13 +2773,13 @@ def test_optimizer_step_training_step_buffers_then_replays_microbatches():
     module = DummyModule()
     before = module.projector.weight.detach().clone()
 
-    first = optimizer_step_training_step(module, batch(0), 0)
+    first = GeoDROOptimizerStepPolicy().training_step(module, batch(0), 0)
     assert first["geodro_deferred_optimizer_step"]
     assert module.backward_calls == 0
     assert module.step_calls == 0
     assert len(module._geodro_optimizer_step_buffer) == 1
 
-    second = optimizer_step_training_step(module, batch(1), 1)
+    second = GeoDROOptimizerStepPolicy().training_step(module, batch(1), 1)
 
     assert second["loss"].ndim == 0
     assert module.backward_calls == 2
@@ -2895,13 +2897,13 @@ def test_optimizer_step_delayed_memory_updates_after_accumulated_replay(
 
     monkeypatch.setattr(memory, "retrieve_witnesses", capture_retrieve)
 
-    first = optimizer_step_training_step(module, batch(0), 0)
+    first = GeoDROOptimizerStepPolicy().training_step(module, batch(0), 0)
 
     assert first["geodro_deferred_optimizer_step"]
     assert snapshots == []
     assert memory.valid_size == 3
 
-    second = optimizer_step_training_step(module, batch(1), 1)
+    second = GeoDROOptimizerStepPolicy().training_step(module, batch(1), 1)
 
     assert second["loss"].ndim == 0
     assert len(snapshots) == 1
